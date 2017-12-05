@@ -1,10 +1,17 @@
 #!/usr/bin/awk -f
 
-# This AWK library provides a "wcwidth" function that accepts a string as its
-# only argument and returns the number of columns needed to display the string.
-# Unlike POSIX's wcwidth(3), the argument to this library's "wcwidth" function
-# can be any number of characters long. Bytes in invalid UTF-8 sequences are
-# treated as "�" which means they have a width of 1.
+# This AWK library provides 3 functions for working with UTF-8 strings:
+#
+# - columns(string): Returns the number of colums needed to display a string,
+#   but unlike "wcswidth" and "wcwidth" which are written to function
+#   identically to their POSIX counterparts, this function always returns a
+#   value greater than or equal to 0.
+# - wcswidth(string): Returns the number of columns needed to display a string.
+# - wcwidth(character): Returns the number of columns needed to display a
+#   character.
+#
+# More detailed explanations of how these functions work can be found in
+# comments immediately preceding their definitions.
 #
 # To minimize the likelihood of name conflicts, all global variables used by
 # this code begin with "WCWIDTH_...", all internal functions begin with
@@ -18,6 +25,7 @@
 BEGIN {
     WCWIDTH_ASCII_TABLE_POPULATED = 0
     WCWIDTH_MULTIBYTE_SAFE = length("宽") == 1
+    WCWIDTH_POSIX_MODE = 0
     WCWIDTH_TABLE_LENGTH = 0
 
     split("", WCWIDTH_CACHE)
@@ -45,37 +53,40 @@ BEGIN {
         # strings.
         WCWIDTH_CACHE["\000"] = 0
     }
+
+    WCWIDTH_END_OF_LATIN1 = WCWIDTH_MULTIBYTE_SAFE ? sprintf("%c", 255) : 255
 }
 
-# Return the number of columns needed to display a string.
+# Determine the number of columns needed to display a string. This function
+# differs from the "wcswidth" function in its handling of non-printable
+# characters; non-printable characters with a code point at or below 255 are
+# ignored while all others are treated as having a width of 1 because they will
+# often be rendered as the ".notdef" glyph
+# (https://www.microsoft.com/typography/otspec/recom.htm).
 #
 # Arguments:
 # - _val: A string of any length.
 #
-# Returns: The number of columns needed to display the string.
+# Returns: The number of columns needed to display the string. This value will
+# always be greater than or equal to 0.
 #
-function wcwidth(_val,    _bytes, _char, _cols, _len, _max, _min, _mid, _n, _w)
+function columns(_val,    _bytes, _char, _cols, _len, _max, _min, _mid, _n, _w)
 {
+    _cols = 0
     _len = length(_val)
 
-    if (!_len) {
-        return 0
-    }
-
-    _cols = 0
-
-    if (WCWIDTH_MULTIBYTE_SAFE) {
+    if (_len && WCWIDTH_MULTIBYTE_SAFE) {
         # Optimization for ASCII and Latin 1 (ISO 8859-1) text.
         _cols = _len
         gsub(/[\040-\176\240-\254\256-\377]+/, "", _val)
         _len = length(_val)
         _cols -= _len
 
-        if (!_len) {
-            return _cols
-        }
-
         _n = 1
+    }
+
+    if (!_len) {
+        return _cols
     }
 
     while (1) {
@@ -152,14 +163,58 @@ function wcwidth(_val,    _bytes, _char, _cols, _len, _max, _min, _mid, _n, _w)
             }
         }
 
-        if (_w == -1) {
+        if (_w != -1) {
+            _cols += _w
+        } else if (WCWIDTH_POSIX_MODE) {
             return -1
+        } else {
+            _cols += _char > WCWIDTH_END_OF_LATIN1
         }
-
-        _cols += _w
     }
 
     return _cols
+}
+
+# A reimplementation of the POSIX function of the same name to determine the
+# number of columns needed to display a string.
+#
+# Arguments:
+# - _val: A string of any length.
+#
+# Returns: The number of columns needed to display the string is returned if
+# all of character are printable and -1 if any are not.
+#
+function wcswidth(_val,    _width)
+{
+    WCWIDTH_POSIX_MODE = 1
+    _width = columns(_val)
+    WCWIDTH_POSIX_MODE = 0
+    return _width
+}
+
+# A reimplementation of the POSIX function of the same name to determine the
+# number of columns needed to display a single character.
+#
+# Arguments:
+# - _val: A string of any length.
+#
+# Returns: The number of columns needed to display the character if it is
+# printable and -1 if it is not. If the argument does not contain exactly one
+# UTF-8 character, -1 is returned.
+#
+function wcwidth(_val,    _len)
+{
+    _len = length(_val)
+
+    if (!_len) {
+        return -1
+    } else if (WCWIDTH_MULTIBYTE_SAFE) {
+        return _len == 1 ? wcswidth(_val) : -1
+    } else if (match(_val, WCWIDTH_UTF8_RUNE_REGEX)) {
+        return RLENGTH == _len ? wcswidth(_val) : -1
+    } else {
+        return -1
+    }
 }
 
 # Populate the data structures that contain character width information.

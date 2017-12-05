@@ -68,6 +68,22 @@ FILENAME != previous_filename {
         expect_filename = FILENAME
         sub(/\.[^.]+$/, ".widths", expect_filename)
     }
+
+    if (WIDTH_DATA_TEST && !length(previous_filename)) {
+        invalid_for_posix = "abc\txyz"
+
+        if ((result = wcswidth(invalid_for_posix)) != (expect = -1)) {
+            printf "wcswidth(invalid_for_posix) => %d ≠ %d\n", result, expect
+            exit_status = 1
+        }
+
+        if ((result = columns(invalid_for_posix)) != (expect = 6)) {
+            printf "columns(invalid_for_posix) => %d ≠ %d\n", result, expect
+            exit_status = 1
+        }
+    }
+
+    previous_filename = FILENAME
 }
 
 WIDTH_DATA_TEST {
@@ -101,12 +117,12 @@ WIDTH_DATA_TEST {
             character = sprintf("%c", (1920 / divisor) % 256 + v) character
         }
 
-        w = wcwidth(character)
+        w = wcswidth(character)
 
         checked++
 
         if (w != $1) {
-            here(TERSE, "wcwidth(%d) => %d ≠ %d", $i, w, $1)
+            here(TERSE, "wcswidth(%d) => %d ≠ %d", $i, w, $1)
             failed++
         }
     }
@@ -118,10 +134,10 @@ GENERIC_TEST {
     }
 
     checked += !!NF
-    result = wcwidth($0)
+    result = columns($0)
 
     if (result != expect) {
-        here(TERSE, "expected wcwidth to return %s, not %s", expect, result)
+        here(TERSE, "expected wcswidth to return %s, not %s", expect, result)
         failed++
     }
 }
