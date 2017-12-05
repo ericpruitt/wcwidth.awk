@@ -4,10 +4,8 @@ wcwidth.awk
 This AWK library provides a "wcwidth" function that accepts a string as its
 only argument and returns the number of columns needed to display the string.
 Unlike POSIX's [_wcwidth(3)_][wcwidth.3], the argument to this library's
-"wcwidth" function can be any number of characters long. When the argument
-represents a single UTF-8 character, -1 is returned if the width is unknown,
-but if there are multiple characters in the string, characters with unknown
-widths are treated as "�" which means they have a width of 1.
+"wcwidth" function can be any number of characters long. Bytes in invalid UTF-8
+sequences are treated as "�" which means they have a width of 1.
 
 The code is written to be as portable as possible. If the AWK interpreter
 processing the library does not have native support for multi-byte characters,

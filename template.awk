@@ -3,10 +3,8 @@
 # This AWK library provides a "wcwidth" function that accepts a string as its
 # only argument and returns the number of columns needed to display the string.
 # Unlike POSIX's wcwidth(3), the argument to this library's "wcwidth" function
-# can be any number of characters long. When the argument represents a single
-# UTF-8 character, -1 is returned if the width is unknown, but if there are
-# multiple characters in the string, characters with unknown widths are treated
-# as "�" which means they have a width of 1.
+# can be any number of characters long. Bytes in invalid UTF-8 sequences are
+# treated as "�" which means they have a width of 1.
 #
 # To minimize the likelihood of name conflicts, all global variables used by
 # this code begin with "WCWIDTH_...", all internal functions begin with
@@ -20,7 +18,6 @@
 BEGIN {
     WCWIDTH_ASCII_TABLE_POPULATED = 0
     WCWIDTH_MULTIBYTE_SAFE = length("宽") == 1
-    WCWIDTH_REPLACEMENT_CHARACTER_CODE_POINT = 65533  # "�"
     WCWIDTH_TABLE_LENGTH = 0
 
     split("", WCWIDTH_CACHE)
@@ -43,18 +40,21 @@ BEGIN {
           > "/dev/fd/2"
         close("/dev/fd/2")
         exit 2
+    } else if ("\000X" != "\000Y") {
+        # Kludge to support AWK implementations allow NUL bytes inside of
+        # strings.
+        WCWIDTH_CACHE["\000"] = 0
     }
 }
 
 # Return the number of columns needed to display a string.
 #
 # Arguments:
-# - _val: A string of any length or, when the value of "WCWIDTH_MULTIBYTE_SAFE"
-#   is 0, an integer representing a Unicode code point.
+# - _val: A string of any length.
 #
 # Returns: The number of columns needed to display the string.
 #
-function wcwidth(_val,    _cols, _len, _max, _many, _min, _mid, _n, _w, _x)
+function wcwidth(_val,    _bytes, _char, _cols, _len, _max, _min, _mid, _n, _w)
 {
     _len = length(_val)
 
@@ -62,142 +62,104 @@ function wcwidth(_val,    _cols, _len, _max, _many, _min, _mid, _n, _w, _x)
         return 0
     }
 
-    if (!WCWIDTH_MULTIBYTE_SAFE) {
-        split(" " _val "X" _val, _x, "X")
+    _cols = 0
 
-        # Check the type of the "_val" argument. If it's a string, translate
-        # each UTF-8 rune to a numeric code point. The type checking logic was
-        # adapted from code written by Steven Penny
-        # (https://github.com/svnpenn/stdlib/blob/45df8cf/libstd.awk#L460-L472).
-        if (_val != _x[1]) {
-            _many = 0
-            _cols = 0
-
-            while (length(_val)) {
-                # Optimization for ASCII text.
-                _cols += length(_val)
-                _many = sub(/^[\040-\176]+/, "", _val) || _many
-                _cols -= length(_val)
-
-                if (!match(_val, WCWIDTH_UTF8_RUNE_REGEX)) {
-                    break
-                }
-
-                _w = wcwidth(_wcwidth_code_point(substr(_val, RSTART, RLENGTH)))
-                _cols += _w == -1 ? 1 : _w
-                _val = substr(_val, RLENGTH + 1)
-                _many = _many || length(_val)
-            }
-
-            return _many ? _cols : _w
-        }
-
-    } else if (_len > 1) {
+    if (WCWIDTH_MULTIBYTE_SAFE) {
         # Optimization for ASCII and Latin 1 (ISO 8859-1) text.
-        _cols += _len
+        _cols = _len
         gsub(/[\040-\176\240-\254\256-\377]+/, "", _val)
         _len = length(_val)
         _cols -= _len
 
-        for (_n = 1; _n <= _len; _n++) {
-            _w = wcwidth(substr(_val, _n, 1))
-            _cols += (_w == -1 ? 1 : _w)
+        if (!_len) {
+            return _cols
         }
 
-        return _cols
+        _n = 1
     }
 
-    if (!WCWIDTH_TABLE_LENGTH) {
-        _wcwidth_unpack_data()
-    } else if (_val in WCWIDTH_CACHE) {
-        return WCWIDTH_CACHE[_val]
-    }
+    while (1) {
+        if (!WCWIDTH_MULTIBYTE_SAFE) {
+            # Optimization for ASCII text.
+            _cols += length(_val)
+            sub(/^[\040-\176]+/, "", _val)
+            _cols -= length(_val)
 
-    # Do a binary search to find the width of the character.
-    _min = 0
-    _max = WCWIDTH_TABLE_LENGTH - 1
-    _w = -2
+            if (!length(_val) || !match(_val, WCWIDTH_UTF8_RUNE_REGEX)) {
+                break
+            }
 
-    while (_min <= _max) {
-        _mid = int((_min + _max) / 2)
+            _bytes = substr(_val, RSTART, RLENGTH)
+            _val = substr(_val, RLENGTH + 1)
 
-        if (_val > WCWIDTH_RANGE_END[_mid]) {
-            _min = _mid + 1
-        } else if (_val < WCWIDTH_RANGE_START[_mid]) {
-            _max = _mid - 1
-        } else {
-            _w = WCWIDTH_RANGE_WIDTH[_mid]
+            # Convert the UTF-8 sequence to a numeric code point.
+            if (!WCWIDTH_ASCII_TABLE_POPULATED) {
+                for (_n = 0; _n < 256; _n++) {
+                    WCWIDTH_BYTE_VALUES[sprintf("%c", _n)] = _n
+                }
+
+                WCWIDTH_ASCII_TABLE_POPULATED = 1
+            }
+
+            if (length(_bytes) == 1) {
+                _char = WCWIDTH_BYTE_VALUES[substr(_bytes, 1, 1)]
+                _char = _char >= 128 ? 65533 : _char  # Invalid -> "�"
+            } else if (length(_bytes) == 2) {
+                _char = \
+                    WCWIDTH_BYTE_VALUES[substr(_bytes, 2, 1)] % 128 + \
+                    WCWIDTH_BYTE_VALUES[substr(_bytes, 1, 1)] % 32 * 64
+            } else if (length(_bytes) == 3) {
+                _char = \
+                    WCWIDTH_BYTE_VALUES[substr(_bytes, 3, 1)] % 128 + \
+                    WCWIDTH_BYTE_VALUES[substr(_bytes, 2, 1)] % 128 * 64 + \
+                    WCWIDTH_BYTE_VALUES[substr(_bytes, 1, 1)] % 16 * 4096
+            } else {
+                _char = \
+                    WCWIDTH_BYTE_VALUES[substr(_bytes, 4, 1)] % 128 + \
+                    WCWIDTH_BYTE_VALUES[substr(_bytes, 3, 1)] % 128 * 64 + \
+                    WCWIDTH_BYTE_VALUES[substr(_bytes, 2, 1)] % 128 * 4096 + \
+                    WCWIDTH_BYTE_VALUES[substr(_bytes, 1, 1)] % 8 * 262144
+            }
+        } else if (_n > length(_val)) {
             break
-        }
-    }
-
-    if (_w == -2) {
-        _w = _val == "\000" ? 0 : -1
-    }
-
-    WCWIDTH_CACHE[_val] = _w
-
-    return _w
-}
-
-# Convert a sequence of bytes to a Unicode code point.
-#
-# Arguments:
-# - _bytes: A string of bytes.
-#
-# Returns:
-# - -1: The length of "_bytes" is 0 or greater than 4.
-# - `WCWIDTH_REPLACEMENT_CHARACTER_CODE_POINT`: The bytes are not a valid UTF-8
-#   sequence.
-# - If the bytes are a valid UTF-8 sequence, the corresponding code point is
-#   returned.
-#
-function _wcwidth_code_point(_bytes,    _i, _l, _len, _n, _value)
-{
-    if (!WCWIDTH_ASCII_TABLE_POPULATED) {
-        for (_i = 0; _i < 256; _i++) {
-            WCWIDTH_BYTE_VALUES[sprintf("%c", _i)] = _i
+        } else {
+            _char = substr(_val, _n++, 1)
         }
 
-        WCWIDTH_ASCII_TABLE_POPULATED = 1
+        if (_char in WCWIDTH_CACHE) {
+            _w = WCWIDTH_CACHE[_char]
+        } else {
+            if (!WCWIDTH_TABLE_LENGTH) {
+                _wcwidth_unpack_data()
+            }
+
+            # Do a binary search to find the width of the character.
+            _min = 0
+            _max = WCWIDTH_TABLE_LENGTH - 1
+            _w = -1
+
+            while (_min <= _max) {
+                _mid = int((_min + _max) / 2)
+
+                if (_char > WCWIDTH_RANGE_END[_mid]) {
+                    _min = _mid + 1
+                } else if (_char < WCWIDTH_RANGE_START[_mid]) {
+                    _max = _mid - 1
+                } else {
+                    WCWIDTH_CACHE[_char] = _w = WCWIDTH_RANGE_WIDTH[_mid]
+                    break
+                }
+            }
+        }
+
+        if (_w == -1) {
+            return -1
+        }
+
+        _cols += _w
     }
 
-    _value = -1
-    _len = length(_bytes)
-
-    if (!_len || _len > 4) {
-        return -1
-    }
-
-    _n = WCWIDTH_BYTE_VALUES[substr(_bytes, 1, 1)]
-
-    if (_len == 1) {
-        return _n < 128 ? _n : WCWIDTH_REPLACEMENT_CHARACTER_CODE_POINT
-    }
-
-    if (int(_n / 32) == 6) {         #   0b110
-        _value = _n % 32
-        _l = 2
-    } else if (int(_n / 16) == 14) { #  0b1110
-        _value = _n % 16
-        _l = 3
-    } else if (int(_n / 8) == 30) {  # 0b11110
-        _value = _n % 8
-        _l = 4
-    } else {
-        _l = 0
-    }
-
-    if (_len != _l) {
-        return WCWIDTH_REPLACEMENT_CHARACTER_CODE_POINT
-    }
-
-    for (_i = 2; _i <= _len; _i++) {
-        #      = _value << 6 | (... & 0b00111111)
-        _value = _value * 64 + WCWIDTH_BYTE_VALUES[substr(_bytes, _i, 1)] % 128
-    }
-
-    return _value
+    return _cols
 }
 
 # Populate the data structures that contain character width information.
