@@ -76,9 +76,9 @@ function columns(_val,    _bytes, _char, _cols, _len, _max, _min, _mid, _n, _w)
     _len = length(_val)
 
     if (_len && WCWIDTH_MULTIBYTE_SAFE) {
-        # Optimization for ASCII and Latin 1 (ISO 8859-1) text.
+        # Optimization for Latin and whatever else I could fit on one line.
         _cols = _len
-        gsub(/[\040-\176 -¬®-ÿ]+/, "", _val)
+        gsub(/[ -~ -¬®-˿Ͱ-ͷͺ-Ϳ΄-ΊΌΎ-ΡΣ-҂Ҋ-ԯԱ-Ֆՙ-՟ա-և։֊־׀׃׆א-תװ-״]+/, "", _val)
         _len = length(_val)
         _cols -= _len
 
@@ -94,14 +94,31 @@ function columns(_val,    _bytes, _char, _cols, _len, _max, _min, _mid, _n, _w)
             # Optimization for ASCII text.
             _cols += length(_val)
             sub(/^[\040-\176]+/, "", _val)
-            _cols -= length(_val)
 
-            if (!length(_val) || !match(_val, WCWIDTH_UTF8_RUNE_REGEX)) {
+            if (!length(_val)) {
                 break
             }
 
+            _cols -= length(_val)
+
+            # Optimization for a subset of the "Latin and whatever" characters
+            # mentioned above. Experimenting showed that performance in MAWK
+            # eventually begins drop off rapidly for the French corpus as the
+            # regex complexity increases.
+            if (match(_val, /^([\303-\313][\200-\277][\040-\176]*)+/)) {
+                _bytes = substr(_val, RSTART, RLENGTH)
+                _cols += gsub(/[^\040-\176]/, "", _bytes) / 2 + length(_bytes)
+
+                if (RLENGTH == length(_val)) {
+                    break
+                }
+
+                _val = substr(_val, RSTART + RLENGTH)
+            }
+
+            match(_val, WCWIDTH_UTF8_RUNE_REGEX)
             _bytes = substr(_val, RSTART, RLENGTH)
-            _val = substr(_val, RLENGTH + 1)
+            _val = RLENGTH == length(_val) ? "" : substr(_val, RLENGTH + 1)
 
             # Convert the UTF-8 sequence to a numeric code point.
             if (!WCWIDTH_ASCII_TABLE_POPULATED) {
