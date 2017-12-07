@@ -42,6 +42,17 @@ BEGIN {
             "\364[\200-\217][\200-\277][\200-\277]|" \
             "." \
         ")"
+        WCWIDTH_WIDE_CJK_RUNES_REGEX = "^((" \
+            "\343(\201[\201-\277]|\202[\200-\226])|" \
+            "\343(\202[\231-\277]|\203[\200-\277])|" \
+            "\344([\270-\277][\200-\277])|" \
+            "[\345-\350]([\200-\277][\200-\277])|" \
+            "\351([\200-\276][\200-\277]|\277[\200-\225])|" \
+            "[\352-\354][\260-\277][\200-\277]|" \
+            "\355([\200-\235][\200-\277]|\236[\200-\243])|" \
+            "\357(\274[\201-\277]|\275[\200-\240])" \
+            ")[\040-\176]*" \
+        ")+"
     } else if (sprintf("%c", 23485) != "宽") {
         print "wcwidth: AWK interpreter supports multibyte sequences," \
               " but sprintf does not accept wide character values for \"%c\"" \
@@ -82,6 +93,17 @@ function columns(_val,    _char, _cols, _len, _max, _min, _mid, _n, _w)
         _len = length(_val)
         _cols -= _len
 
+        # Optimization for common wide CJK characters. Based on data from
+        # http://corpus.leeds.ac.uk/list.html, this covers ~95% of all
+        # characters used on Chinese and Japanese sites. U+3099 is a combining
+        # character, so it has been replaced with an octal sequence to keep
+        # terminal screens from getting munged.
+        if (_len) {
+            gsub(/[가-힣一-鿕！-｠ぁ-ゖ\343\202\231-ヿ]+/, "", _val)
+            _cols += (_len - length(_val)) * 2
+            _len = length(_val)
+        }
+
         _n = 1
     }
 
@@ -108,6 +130,20 @@ function columns(_val,    _char, _cols, _len, _max, _min, _mid, _n, _w)
             if (match(_val, /^([\303-\313][\200-\277][\040-\176]*)+/)) {
                 _char = substr(_val, RSTART, RLENGTH)
                 _cols += gsub(/[^\040-\176]/, "", _char) / 2 + length(_char)
+
+                if (RLENGTH == length(_val)) {
+                    break
+                }
+
+                _val = substr(_val, RSTART + RLENGTH)
+            }
+
+            # Optimization for common wide CJK characters. The regular
+            # expression used here covers the exact same range as the regex for
+            # multi-byte safe interpreters.
+            if (match(_val, WCWIDTH_WIDE_CJK_RUNES_REGEX)) {
+                _char = substr(_val, RSTART, RLENGTH)
+                _cols += gsub(/[^ -~]/, "", _char) / 3 * 2 + length(_char)
 
                 if (RLENGTH == length(_val)) {
                     break
