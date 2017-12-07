@@ -78,7 +78,7 @@ function columns(_val,    _bytes, _char, _cols, _len, _max, _min, _mid, _n, _w)
     if (_len && WCWIDTH_MULTIBYTE_SAFE) {
         # Optimization for ASCII and Latin 1 (ISO 8859-1) text.
         _cols = _len
-        gsub(/[\040-\176\240-\254\256-\377]+/, "", _val)
+        gsub(/[\040-\176 -¬®-ÿ]+/, "", _val)
         _len = length(_val)
         _cols -= _len
 
