@@ -54,7 +54,7 @@ BEGIN {
         WCWIDTH_CACHE["\000"] = 0
     }
 
-    WCWIDTH_END_OF_LATIN1 = WCWIDTH_MULTIBYTE_SAFE ? sprintf("%c", 255) : 255
+    WCWIDTH_END_OF_LATIN1 = "ÿ"
 }
 
 # Determine the number of columns needed to display a string. This function
@@ -70,7 +70,7 @@ BEGIN {
 # Returns: The number of columns needed to display the string. This value will
 # always be greater than or equal to 0.
 #
-function columns(_val,    _bytes, _char, _cols, _len, _max, _min, _mid, _n, _w)
+function columns(_val,    _char, _cols, _len, _max, _min, _mid, _n, _w)
 {
     _cols = 0
     _len = length(_val)
@@ -106,8 +106,8 @@ function columns(_val,    _bytes, _char, _cols, _len, _max, _min, _mid, _n, _w)
             # eventually begins drop off rapidly for the French corpus as the
             # regex complexity increases.
             if (match(_val, /^([\303-\313][\200-\277][\040-\176]*)+/)) {
-                _bytes = substr(_val, RSTART, RLENGTH)
-                _cols += gsub(/[^\040-\176]/, "", _bytes) / 2 + length(_bytes)
+                _char = substr(_val, RSTART, RLENGTH)
+                _cols += gsub(/[^\040-\176]/, "", _char) / 2 + length(_char)
 
                 if (RLENGTH == length(_val)) {
                     break
@@ -117,37 +117,8 @@ function columns(_val,    _bytes, _char, _cols, _len, _max, _min, _mid, _n, _w)
             }
 
             match(_val, WCWIDTH_UTF8_RUNE_REGEX)
-            _bytes = substr(_val, RSTART, RLENGTH)
+            _char = substr(_val, RSTART, RLENGTH)
             _val = RLENGTH == length(_val) ? "" : substr(_val, RLENGTH + 1)
-
-            # Convert the UTF-8 sequence to a numeric code point.
-            if (!WCWIDTH_ASCII_TABLE_POPULATED) {
-                for (_n = 0; _n < 256; _n++) {
-                    WCWIDTH_BYTE_VALUES[sprintf("%c", _n)] = _n
-                }
-
-                WCWIDTH_ASCII_TABLE_POPULATED = 1
-            }
-
-            if (length(_bytes) == 1) {
-                _char = WCWIDTH_BYTE_VALUES[substr(_bytes, 1, 1)]
-                _char = _char >= 128 ? 65533 : _char  # Invalid -> "�"
-            } else if (length(_bytes) == 2) {
-                _char = \
-                    WCWIDTH_BYTE_VALUES[substr(_bytes, 2, 1)] % 128 + \
-                    WCWIDTH_BYTE_VALUES[substr(_bytes, 1, 1)] % 32 * 64
-            } else if (length(_bytes) == 3) {
-                _char = \
-                    WCWIDTH_BYTE_VALUES[substr(_bytes, 3, 1)] % 128 + \
-                    WCWIDTH_BYTE_VALUES[substr(_bytes, 2, 1)] % 128 * 64 + \
-                    WCWIDTH_BYTE_VALUES[substr(_bytes, 1, 1)] % 16 * 4096
-            } else {
-                _char = \
-                    WCWIDTH_BYTE_VALUES[substr(_bytes, 4, 1)] % 128 + \
-                    WCWIDTH_BYTE_VALUES[substr(_bytes, 3, 1)] % 128 * 64 + \
-                    WCWIDTH_BYTE_VALUES[substr(_bytes, 2, 1)] % 128 * 4096 + \
-                    WCWIDTH_BYTE_VALUES[substr(_bytes, 1, 1)] % 8 * 262144
-            }
         } else if (_n > length(_val)) {
             break
         } else {
@@ -156,11 +127,9 @@ function columns(_val,    _bytes, _char, _cols, _len, _max, _min, _mid, _n, _w)
 
         if (_char in WCWIDTH_CACHE) {
             _w = WCWIDTH_CACHE[_char]
+        } else if (!WCWIDTH_TABLE_LENGTH) {
+            _w = WCWIDTH_CACHE[_char] = _wcwidth_unpack_data(_char) % 10 - 1
         } else {
-            if (!WCWIDTH_TABLE_LENGTH) {
-                _wcwidth_unpack_data()
-            }
-
             # Do a binary search to find the width of the character.
             _min = 0
             _max = WCWIDTH_TABLE_LENGTH - 1
@@ -174,10 +143,12 @@ function columns(_val,    _bytes, _char, _cols, _len, _max, _min, _mid, _n, _w)
                 } else if (_char < WCWIDTH_RANGE_START[_mid]) {
                     _max = _mid - 1
                 } else {
-                    WCWIDTH_CACHE[_char] = _w = WCWIDTH_RANGE_WIDTH[_mid]
+                    _w = WCWIDTH_RANGE_WIDTH[_mid]
                     break
                 }
             }
+
+            WCWIDTH_CACHE[_char] = _w
         }
 
         if (_w != -1) {
@@ -236,26 +207,70 @@ function wcwidth(_val,    _len)
 
 # Populate the data structures that contain character width information.
 #
-function _wcwidth_unpack_data(    _data, _end, _entry, _parts, _ranges, _start)
-{
+# Arguments:
+# - _char: A character sequence whose width should be returned.
+#
+# Returns: The width of the character and the character's location in the width
+# table encoded as a single number via `10 * TableIndex + CharacterWidth + 1`.
+#
+function _wcwidth_unpack_data(_char,    _a, _b, _c, _data, _end, _entry,
+  _parts, _ranges, _result, _start, _width) {
+
     _data = \
     # XXX: This part of the function will be filled in automatically.
 
+    _result = 0
     WCWIDTH_TABLE_LENGTH = split(_data, _ranges, ",")
 
     for (_entry = 0; _entry < WCWIDTH_TABLE_LENGTH; _entry++) {
         split(_ranges[_entry + 1], _parts)
+        _width = 0 + _parts[1]
         _start = 0 + _parts[2]
         _end = 0 + _parts[3]
 
-        WCWIDTH_RANGE_WIDTH[_entry] = 0 + _parts[1]
+        WCWIDTH_RANGE_WIDTH[_entry] = _width
 
-        if (WCWIDTH_MULTIBYTE_SAFE) {
-            WCWIDTH_RANGE_START[_entry] = sprintf("%c", _start)
-            WCWIDTH_RANGE_END[_entry] = sprintf("%c", _end)
+        if (WCWIDTH_MULTIBYTE_SAFE || _end < 128) {
+            _start = sprintf("%c", _start)
+            _end = sprintf("%c", _end)
         } else {
-            WCWIDTH_RANGE_START[_entry] = _start
-            WCWIDTH_RANGE_END[_entry] = _end
+            # UTF-8 characters must be composed manually for multi-byte unsafe
+            # interpreters outside of the ASCII range.
+
+            # Re-use of the length encoding addended values for both endpoints
+            # only works if both characters consist of the same number of
+            # bytes. This is enforced by the width data generator.
+            _a = _start >= 65536 ? 240 : 32
+            _b = _a != 32 ? 128 : _start >= 2048 ? 224 : 32
+            _c = _b != 32 ? 128 : _start >= 64 ? 192 : 32
+
+            _start = sprintf("%c%c%c%c",
+                _a + int(_start / 262144) % 64,
+                _b + int(_start / 4096) % 64,
+                _c + int(_start / 64) % 64,
+                128 + _start % 64 \
+            )
+
+            _end = sprintf("%c%c%c%c",
+                _a + int(_end / 262144) % 64,
+                _b + int(_end / 4096) % 64,
+                _c + int(_end / 64) % 64,
+                128 + _end % 64 \
+            )
+
+            if (_a == 32) {
+                _end = substr(_end, 2 + (_b == 32) + (_c == 32))
+                _start = substr(_start, 2 + (_b == 32) + (_c == 32))
+            }
+        }
+
+        WCWIDTH_RANGE_START[_entry] = _start
+        WCWIDTH_RANGE_END[_entry] = _end
+
+        if (!_result && _char >= _start && _char <= _end) {
+            _result = 10 * _entry + _width + 1
         }
     }
+
+    return _result ? _result : int(WCWIDTH_TABLE_LENGTH / 2) * 10
 }

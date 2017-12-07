@@ -17,7 +17,13 @@
 #include <wchar.h>
 
 #define IS_BOUNDARY(x) ( \
+    /* Some of these values are redundant but simplifying the expression */ \
+    /* would make the intent / purpose of these less clear. */ \
+    (/* First character composed of 2 bytes in UTF-8: */ (x) == 0x80) || \
+    (/* First character composed of 3 bytes in UTF-8: */ (x) == 0x800) || \
+    (/* First character composed of 4 bytes in UTF-8: */ (x) == 0x10000) || \
     (/* Last Unicode code point: */ (x) == 0x10FFFF) || \
+    \
     (/* Surrogates: */ (x) == 0xD800 || ((x) - 1) == 0xDFFF) || \
     (/* Private Use Area (PUA): */ (x) == 0xE000 || ((x) - 1) == 0xF8FF) || \
     (/* Supplemental PUA A: */ (x) == 0xF0000 || ((x) - 1) == 0xFFFFD) || \
