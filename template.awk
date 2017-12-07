@@ -128,16 +128,16 @@ function columns(_val,    _char, _cols, _len, _max, _min, _mid, _n, _w)
         if (_char in WCWIDTH_CACHE) {
             _w = WCWIDTH_CACHE[_char]
         } else if (!WCWIDTH_TABLE_LENGTH) {
-            _w = WCWIDTH_CACHE[_char] = _wcwidth_unpack_data(_char) % 10 - 1
+            _mid = _wcwidth_unpack_data(_char)
+            _w = WCWIDTH_CACHE[_char] = _mid % 10 - 1
+            _mid = int(_mid / 10)
         } else {
             # Do a binary search to find the width of the character.
             _min = 0
             _max = WCWIDTH_TABLE_LENGTH - 1
             _w = -1
 
-            while (_min <= _max) {
-                _mid = int((_min + _max) / 2)
-
+            do {
                 if (_char > WCWIDTH_RANGE_END[_mid]) {
                     _min = _mid + 1
                 } else if (_char < WCWIDTH_RANGE_START[_mid]) {
@@ -146,7 +146,8 @@ function columns(_val,    _char, _cols, _len, _max, _min, _mid, _n, _w)
                     _w = WCWIDTH_RANGE_WIDTH[_mid]
                     break
                 }
-            }
+                _mid = int((_min + _max) / 2)
+            } while (_min <= _max)
 
             WCWIDTH_CACHE[_char] = _w
         }
