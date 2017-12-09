@@ -20,21 +20,32 @@ tested with these AWK implementations:
 - [MAWK][mawk]
 - [Original AWK a.k.a "The One True Awk"][original-awk]
 
+The width data used by the preexisting "wcwidth.awk" comes from version 2.24 of
+the [GNU C Library][glibc], but it can be rebuilt to tailor to other systems
+using instructions in the _Development_ section at the end of this document.
+
   [wcwidth.3]: http://pubs.opengroup.org/onlinepubs/9699919799/functions/wcwidth.html
   [wcswidth.3]: http://pubs.opengroup.org/onlinepubs/9699919799/functions/wcswidth.html
   [busybox]: https://busybox.net/
   [gawk]: https://www.gnu.org/software/gawk/
   [mawk]: http://invisible-island.net/mawk/mawk.html
   [original-awk]: https://packages.debian.org/wheezy/original-awk
+  [glibc]: https://www.gnu.org/software/libc/
 
 Usage and Functions
 -------------------
 
-A "wcwidth.awk" file generated using GNU libc 2.24 is included with this
-repository. It should be sourced using AWK's "-f" option (or any equivalent
-construct) before any files that make use of this library's functions. The
-library will only use the "exit" statement if it appears the library will not
-work with the AWK interpreter.
+The entirety of the library is contained in the "wcwidth.awk" file included
+with this repository. The library has no dependencies (the other files in this
+repository are for development purposes), so installation consists of copying
+"wcwidth.awk" somewhere convenient. To use the functions in the library, source
+the file using AWK's "-f" option or any equivalent construct like GNU Awk's
+["@include"][gawk-include]. The library only uses "exit" if the library is
+incompatible with the interpreter. In that case, "WCWIDTH_INITIALIZED" is set
+to -1 so failed initialization can be detected with `WCWIDTH_INITIALIZED < 0`
+in an "END" block.
+
+  [gawk-include]: https://www.gnu.org/software/gawk/manual/html_node/Include-Files.html
 
 ### columns(_string_) ###
 
