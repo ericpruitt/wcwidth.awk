@@ -33,7 +33,7 @@ BEGIN {
     if (!WCWIDTH_MULTIBYTE_SAFE) {
         WCWIDTH_UTF8_RUNE_REGEX = "^(" \
             "[\001-\177]|" \
-            "[\302-\337][\200-\277]|" \
+            "[\302-\336\337][\200-\277]|" \
             "\340[\240-\277][\200-\277]|" \
             "[\341-\354\356\357][\200-\277][\200-\277]|" \
             "\355[\200-\237][\200-\277]|" \
@@ -59,10 +59,15 @@ BEGIN {
           > "/dev/fd/2"
         close("/dev/fd/2")
         exit 2
-    } else if ("\000X" != "\000Y") {
-        # Kludge to support AWK implementations allow NUL bytes inside of
-        # strings.
-        WCWIDTH_CACHE["\000"] = 0
+    }
+
+    # Kludges to support AWK implementations allow NUL bytes inside of strings.
+    if (length(WCWIDTH_NUL = sprintf("%c", 0))) {
+        if (!WCWIDTH_MULTIBYTE_SAFE) {
+            WCWIDTH_UTF8_RUNE_REGEX = WCWIDTH_UTF8_RUNE_REGEX "|^" WCWIDTH_NUL
+        }
+
+        WCWIDTH_CACHE[WCWIDTH_NUL] = 0
     }
 
     WCWIDTH_END_OF_LATIN1 = "ÿ"

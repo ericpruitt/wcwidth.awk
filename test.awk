@@ -96,18 +96,20 @@ WIDTH_DATA_TEST {
     }
 
     for (i = 2; i == 2 || (i == 3 && $2 != $3); i++) {
+        value = 0 + $i
+
         # This is the range of the leading ("high") code points in UCS
         # surrogate pairs. The values normally cannot appear in isolation and
         # are therefore not valid wide characters.
-        if ($i >= 55296 && $i <= 57343) {
+        if (value >= 55296 && value <= 57343) {
             continue
         }
 
-        if (WCWIDTH_MULTIBYTE_SAFE || $i < 128) {
-            character = sprintf("%c", $i)
+        if (WCWIDTH_MULTIBYTE_SAFE || value < 128) {
+            character = sprintf("%c", value)
         } else {
             character = ""
-            len = (v = $i) >= 65536 ? 4 : v >= 2048 ? 3 : v >= 128 ? 2 : 1
+            len = (v = value) >= 65536 ? 4 : v >= 2048 ? 3 : v >= 128 ? 2 : 1
 
             for (divisor = 1; len-- > 1; divisor *= 2) {
                 character = sprintf("%c", 128 + v % 64) character
@@ -117,12 +119,16 @@ WIDTH_DATA_TEST {
             character = sprintf("%c", (1920 / divisor) % 256 + v) character
         }
 
+        if (!length(character) && !value) {
+            continue
+        }
+
         w = wcswidth(character)
 
         checked++
 
         if (w != $1) {
-            here(TERSE, "wcswidth(%d) => %d ≠ %d", $i, w, $1)
+            here(TERSE, "wcswidth(%d) => %d ≠ %d", value, w, $1)
             failed++
         }
     }

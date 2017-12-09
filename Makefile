@@ -6,7 +6,7 @@
 AWK = awk
 AWKS = \
 	"busybox awk" \
-	"gawk --posix" \
+	"env LC_ALL=C gawk --posix" \
 	"gawk" \
 	"mawk" \
 	"original-awk" \
