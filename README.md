@@ -52,9 +52,9 @@ in an "END" block.
 Determine the number of columns needed to display a string. This function
 differs from the "wcswidth" function in its handling of non-printable
 characters; instead of making the function abort and immediately return -1,
-non-printable characters with a code point at or below 255 are ignored while
-all others are treated as having a width of 1 because they will typically be
-rendered as a single-column [".notdef" glyph][notdef-glyph].
+non-printable ASCII characters are ignored while all others are treated as as
+having a width of 1 because they will typically be rendered as a single-column
+[".notdef" glyph][notdef-glyph].
 
   [notdef-glyph]: https://www.microsoft.com/typography/otspec/recom.htm
 
