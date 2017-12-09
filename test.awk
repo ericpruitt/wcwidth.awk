@@ -108,27 +108,48 @@ WIDTH_DATA_TEST {
         if (WCWIDTH_MULTIBYTE_SAFE || value < 128) {
             character = sprintf("%c", value)
         } else {
-            character = ""
-            len = (v = value) >= 65536 ? 4 : v >= 2048 ? 3 : v >= 128 ? 2 : 1
+            a = value >= 65536 ? 240 : 32
+            b = a != 32 ? 128 : value >= 2048 ? 224 : 32
+            c = b != 32 ? 128 : value >= 64 ? 192 : 32
 
-            for (divisor = 1; len-- > 1; divisor *= 2) {
-                character = sprintf("%c", 128 + v % 64) character
-                v = int(v / 64)
+            character = sprintf("%c%c%c%c",
+                a + int(value / 262144) % 64,
+                b + int(value / 4096) % 64,
+                c + int(value / 64) % 64,
+                128 + value % 64 \
+            )
+
+            if (a == 32) {
+                character = substr(character, 2 + (b == 32) + (c == 32))
             }
-
-            character = sprintf("%c", (1920 / divisor) % 256 + v) character
         }
 
         if (!length(character) && !value) {
             continue
         }
 
+        w = columns(character)
+        expected = $1 != -1 ? $1 : value > 127 ? 1 : 0
+
+        checked++
+        if (w != expected) {
+            here(TERSE, "columns(%d) => %d ≠ %d", value, w, expected)
+            failed++
+        }
+
         w = wcswidth(character)
 
         checked++
-
         if (w != $1) {
             here(TERSE, "wcswidth(%d) => %d ≠ %d", value, w, $1)
+            failed++
+        }
+
+        w = wcwidth(character)
+
+        checked++
+        if (w != $1) {
+            here(TERSE, "wcwidth(%d) => %d ≠ %d", value, w, $1)
             failed++
         }
     }
