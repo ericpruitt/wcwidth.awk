@@ -95,7 +95,7 @@ WIDTH_DATA_TEST {
         abort("expected 3 columns but this line has %d", NF)
     }
 
-    for (i = 2; i <= 3; i++) {
+    for (i = 2; i == 2 || (i == 3 && $2 != $3); i++) {
         # This is the range of the leading ("high") code points in UCS
         # surrogate pairs. The values normally cannot appear in isolation and
         # are therefore not valid wide characters.
