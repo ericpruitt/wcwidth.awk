@@ -40,14 +40,16 @@ work with the AWK interpreter.
 
 Determine the number of columns needed to display a string. This function
 differs from the "wcswidth" function in its handling of non-printable
-characters; non-printable characters with a code point at or below 255 are
-ignored while all others are treated as having a width of 1 because they will
-often be rendered as the [".notdef" glyph][notdef-glyph].
+characters; instead of making the function abort and immediately return -1,
+non-printable characters with a code point at or below 255 are ignored while
+all others are treated as having a width of 1 because they will typically be
+rendered as a single-column [".notdef" glyph][notdef-glyph].
 
   [notdef-glyph]: https://www.microsoft.com/typography/otspec/recom.htm
 
 **Arguments:**
-- **string**: A string of any length.
+- **string**: A string of any length. In AWK interpreters that are not
+  multi-byte safe, this argument is interpreted as a UTF-8 encoded string.
 
 **Returns:** The number of columns needed to display the string. This value will
 always be greater than or equal to 0.
@@ -67,7 +69,8 @@ A reimplementation of the [POSIX function of the same name][wcswidth.3] to
 determine the number of columns needed to display a string.
 
 **Arguments:**
-- **string**: A string of any length.
+- **string**: A string of any length. In AWK interpreters that are not
+  multi-byte safe, this argument is interpreted as a UTF-8 encoded string.
 
 **Returns:** The number of columns needed to display the string is returned if
 all of character are printable and -1 if any are not.
@@ -88,7 +91,9 @@ A reimplementation of the [POSIX function of the same name][wcwidth.3] to
 determine the number of columns needed to display a single character.
 
 **Arguments:**
-- **string**: A string of any length.
+- **character**: A single character. In AWK interpreters that are not
+  multi-byte safe, this argument may consist of multiple characters that
+  together represent a single UTF-8 encoded code point.
 
 **Returns:** The number of columns needed to display the character if it is
 printable and -1 if it is not. If the argument does not contain exactly one

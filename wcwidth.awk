@@ -23,7 +23,6 @@
 # Project Page: https://github.com/ericpruitt/wcwidth.awk
 
 BEGIN {
-    WCWIDTH_ASCII_TABLE_POPULATED = 0
     WCWIDTH_MULTIBYTE_SAFE = length("宽") == 1
     WCWIDTH_POSIX_MODE = 0
     WCWIDTH_TABLE_LENGTH = 0
@@ -51,7 +50,7 @@ BEGIN {
             "[\352-\354][\260-\277][\200-\277]|" \
             "\355([\200-\235][\200-\277]|\236[\200-\243])|" \
             "\357(\274[\201-\277]|\275[\200-\240])" \
-            ")[\040-\176]*" \
+            ")[ -~]*" \
         ")+"
     } else if (sprintf("%c", 23485) != "宽") {
         print "wcwidth: AWK interpreter supports multibyte sequences," \
@@ -75,149 +74,150 @@ BEGIN {
 
 # Determine the number of columns needed to display a string. This function
 # differs from the "wcswidth" function in its handling of non-printable
-# characters; non-printable characters with a code point at or below 255 are
-# ignored while all others are treated as having a width of 1 because they will
-# often be rendered as the ".notdef" glyph
+# characters; instead of making the function abort and immediately return -1,
+# non-printable characters with a code point at or below 255 are ignored while
+# all others are treated as having a width of 1 because they will typically be
+# rendered as a single-column ".notdef" glyph
 # (https://www.microsoft.com/typography/otspec/recom.htm).
 #
 # Arguments:
-# - _val: A string of any length.
+# - _str: A string of any length. In AWK interpreters that are not multi-byte
+#   safe, this argument is interpreted as a UTF-8 encoded string.
 #
 # Returns: The number of columns needed to display the string. This value will
 # always be greater than or equal to 0.
 #
-function columns(_val,    _char, _cols, _len, _max, _min, _mid, _n, _w)
+function columns(_str,    _length, _max, _min, _offset, _total, _wchar, _width)
 {
-    _cols = 0
-    _len = length(_val)
+    _total = 0
 
-    if (_len && WCWIDTH_MULTIBYTE_SAFE) {
+    if (WCWIDTH_MULTIBYTE_SAFE) {
         # Optimization for Latin and whatever else I could fit on one line.
-        _cols = _len
-        gsub(/[ -~ -¬®-˿Ͱ-ͷͺ-Ϳ΄-ΊΌΎ-ΡΣ-҂Ҋ-ԯԱ-Ֆՙ-՟ա-և։֊־׀׃׆א-תװ-״]+/, "", _val)
-        _len = length(_val)
-        _cols -= _len
+        _total = length(_str)
+        gsub(/[ -~ -¬®-˿Ͱ-ͷͺ-Ϳ΄-ΊΌΎ-ΡΣ-҂Ҋ-ԯԱ-Ֆՙ-՟ա-և։֊־׀׃׆א-תװ-״]+/, "", _str)
+
+        if (!_str) {
+            return _total
+        }
 
         # Optimization for common wide CJK characters. Based on data from
         # http://corpus.leeds.ac.uk/list.html, this covers ~95% of all
         # characters used on Chinese and Japanese sites. U+3099 is a combining
         # character, so it has been replaced with an octal sequence to keep
         # terminal screens from getting munged.
-        if (_len) {
-            gsub(/[가-힣一-鿕！-｠ぁ-ゖ\343\202\231-ヿ]+/, "", _val)
-            _cols += (_len - length(_val)) * 2
-            _len = length(_val)
-        }
+        _length = length(_str)
+        _total -= _length
+        gsub(/[가-힣一-鿕！-｠ぁ-ゖ\343\202\231-ヿ]+/, "", _str)
+        _total += (_length - length(_str)) * 2
 
-        _n = 1
+        _offset = 1
     }
 
-    if (!_len) {
-        return _cols
+    if (!_str) {
+        return _total
     }
 
     while (1) {
         if (!WCWIDTH_MULTIBYTE_SAFE) {
             # Optimization for ASCII text.
-            _cols += length(_val)
-            sub(/^[\040-\176]+/, "", _val)
+            _total += length(_str)
+            sub(/^[\040-\176]+/, "", _str)
 
-            if (!length(_val)) {
+            if (!_str) {
                 break
             }
 
-            _cols -= length(_val)
+            _total -= length(_str)
 
             # Optimization for a subset of the "Latin and whatever" characters
             # mentioned above. Experimenting showed that performance in MAWK
             # eventually begins drop off rapidly for the French corpus as the
             # regex complexity increases.
-            if (match(_val, /^([\303-\313][\200-\277][\040-\176]*)+/)) {
-                _char = substr(_val, RSTART, RLENGTH)
-                _cols += gsub(/[^\040-\176]/, "", _char) / 2 + length(_char)
+            if (match(_str, /^([\303-\313][\200-\277][ -~]*)+/)) {
+                _wchar = substr(_str, RSTART, RLENGTH)
+                _total += gsub(/[^ -~]/, "", _wchar) / 2 + length(_wchar)
 
-                if (RLENGTH == length(_val)) {
+                if (RLENGTH == length(_str)) {
                     break
                 }
 
-                _val = substr(_val, RSTART + RLENGTH)
+                _str = substr(_str, RSTART + RLENGTH)
             }
 
             # Optimization for common wide CJK characters. The regular
             # expression used here covers the exact same range as the regex for
             # multi-byte safe interpreters.
-            if (match(_val, WCWIDTH_WIDE_CJK_RUNES_REGEX)) {
-                _char = substr(_val, RSTART, RLENGTH)
-                _cols += gsub(/[^ -~]/, "", _char) / 3 * 2 + length(_char)
+            if (match(_str, WCWIDTH_WIDE_CJK_RUNES_REGEX)) {
+                _wchar = substr(_str, RSTART, RLENGTH)
+                _total += gsub(/[^ -~]/, "", _wchar) / 3 * 2 + length(_wchar)
 
-                if (RLENGTH == length(_val)) {
+                if (RLENGTH == length(_str)) {
                     break
                 }
 
-                _val = substr(_val, RSTART + RLENGTH)
+                _str = substr(_str, RSTART + RLENGTH)
             }
 
-            match(_val, WCWIDTH_UTF8_RUNE_REGEX)
-            _char = substr(_val, RSTART, RLENGTH)
-            _val = RLENGTH == length(_val) ? "" : substr(_val, RLENGTH + 1)
-        } else if (_n > length(_val)) {
+            match(_str, WCWIDTH_UTF8_RUNE_REGEX)
+            _wchar = substr(_str, RSTART, RLENGTH)
+            _str = RLENGTH == length(_str) ? "" : substr(_str, RLENGTH + 1)
+        } else if (_offset > length(_str)) {
             break
         } else {
-            _char = substr(_val, _n++, 1)
+            _wchar = substr(_str, _offset++, 1)
         }
 
-        if (_char in WCWIDTH_CACHE) {
-            _w = WCWIDTH_CACHE[_char]
+        if (_wchar in WCWIDTH_CACHE) {
+            _width = WCWIDTH_CACHE[_wchar]
         } else if (!WCWIDTH_TABLE_LENGTH) {
-            _mid = _wcwidth_unpack_data(_char)
-            _w = WCWIDTH_CACHE[_char] = _mid % 10 - 1
-            _mid = int(_mid / 10)
+            _width = _wcwidth_unpack_data(_wchar)
         } else {
             # Do a binary search to find the width of the character.
             _min = 0
             _max = WCWIDTH_TABLE_LENGTH - 1
-            _w = -1
+            _width = -1
 
             do {
-                if (_char > WCWIDTH_RANGE_END[_mid]) {
-                    _min = _mid + 1
-                } else if (_char < WCWIDTH_RANGE_START[_mid]) {
-                    _max = _mid - 1
+                if (_wchar < WCWIDTH_RANGE_START[WCWIDTH_SEARCH_CURSOR]) {
+                    _max = WCWIDTH_SEARCH_CURSOR - 1
+                } else if (_wchar > WCWIDTH_RANGE_END[WCWIDTH_SEARCH_CURSOR]) {
+                    _min = WCWIDTH_SEARCH_CURSOR + 1
                 } else {
-                    _w = WCWIDTH_RANGE_WIDTH[_mid]
+                    _width = WCWIDTH_RANGE_WIDTH[WCWIDTH_SEARCH_CURSOR]
                     break
                 }
-                _mid = int((_min + _max) / 2)
+                WCWIDTH_SEARCH_CURSOR = int((_min + _max) / 2)
             } while (_min <= _max)
 
-            WCWIDTH_CACHE[_char] = _w
+            WCWIDTH_CACHE[_wchar] = _width
         }
 
-        if (_w != -1) {
-            _cols += _w
+        if (_width != -1) {
+            _total += _width
         } else if (WCWIDTH_POSIX_MODE) {
             return -1
         } else {
-            _cols += _char > WCWIDTH_END_OF_LATIN1
+            _total += _wchar > WCWIDTH_END_OF_LATIN1
         }
     }
 
-    return _cols
+    return _total
 }
 
 # A reimplementation of the POSIX function of the same name to determine the
 # number of columns needed to display a string.
 #
 # Arguments:
-# - _val: A string of any length.
+# - _str: A string of any length. In AWK interpreters that are not multi-byte
+#   safe, this argument is interpreted as a UTF-8 encoded string.
 #
 # Returns: The number of columns needed to display the string is returned if
 # all of character are printable and -1 if any are not.
 #
-function wcswidth(_val,    _width)
+function wcswidth(_str,    _width)
 {
     WCWIDTH_POSIX_MODE = 1
-    _width = columns(_val)
+    _width = columns(_str)
     WCWIDTH_POSIX_MODE = 0
     return _width
 }
@@ -226,37 +226,37 @@ function wcswidth(_val,    _width)
 # number of columns needed to display a single character.
 #
 # Arguments:
-# - _val: A string of any length.
+# - _wchar: A single character. In AWK interpreters that are not multi-byte
+#   safe, this argument may consist of multiple characters that together
+#   represent a single UTF-8 encoded code point.
 #
 # Returns: The number of columns needed to display the character if it is
 # printable and -1 if it is not. If the argument does not contain exactly one
-# UTF-8 character, -1 is returned.
+# character (or UTF-8 code point), -1 is returned.
 #
-function wcwidth(_val,    _len)
+function wcwidth(_wchar)
 {
-    _len = length(_val)
-
-    if (!_len) {
+    if (!_wchar) {
         return -1
     } else if (WCWIDTH_MULTIBYTE_SAFE) {
-        return _len == 1 ? wcswidth(_val) : -1
-    } else if (match(_val, WCWIDTH_UTF8_RUNE_REGEX)) {
-        return RLENGTH == _len ? wcswidth(_val) : -1
+        return length(_wchar) == 1 ? wcswidth(_wchar) : -1
+    } else if (match(_wchar, WCWIDTH_UTF8_RUNE_REGEX)) {
+        return RLENGTH == length(_wchar) ? wcswidth(_wchar) : -1
     } else {
         return -1
     }
 }
 
-# Populate the data structures that contain character width information.
+# Populate the data structures that contain character width information. For
+# convenience, this function accepts a character and returns its width.
 #
 # Arguments:
-# - _char: A character sequence whose width should be returned.
+# - _wchar: A single character as described in the "wcwidth" documentation.
 #
-# Returns: The width of the character and the character's location in the width
-# table encoded as a single number via `10 * TableIndex + CharacterWidth + 1`.
+# Returns: The width of the character i.e. `wcwidth(_wchar)`.
 #
-function _wcwidth_unpack_data(_char,    _a, _b, _c, _data, _end, _entry,
-  _parts, _ranges, _result, _start, _width) {
+function _wcwidth_unpack_data(_wchar,    _a, _b, _c, _data, _end, _entry,
+  _parts, _ranges, _start, _width, _width_of_wchar_argument) {
 
     _data = \
     "0 0 0,1 32 126,1 160 172,0 173 173,1 174 767,0 768 879,1 880 887,1 890 " \
@@ -484,7 +484,7 @@ function _wcwidth_unpack_data(_char,    _a, _b, _c, _data, _end, _entry,
     "4560 195101,0 917505 917505,0 917536 917631,0 917760 917999,1 983040 10" \
     "48573,1 1048576 1114109"
 
-    _result = 0
+    _width_of_wchar_argument = -1
     WCWIDTH_TABLE_LENGTH = split(_data, _ranges, ",")
 
     for (_entry = 0; _entry < WCWIDTH_TABLE_LENGTH; _entry++) {
@@ -492,8 +492,6 @@ function _wcwidth_unpack_data(_char,    _a, _b, _c, _data, _end, _entry,
         _width = 0 + _parts[1]
         _start = 0 + _parts[2]
         _end = 0 + _parts[3]
-
-        WCWIDTH_RANGE_WIDTH[_entry] = _width
 
         if (WCWIDTH_MULTIBYTE_SAFE || _end < 128) {
             _start = sprintf("%c", _start)
@@ -529,13 +527,18 @@ function _wcwidth_unpack_data(_char,    _a, _b, _c, _data, _end, _entry,
             }
         }
 
+        if (_wchar <= _end) {
+            if (_wchar >= _start) {
+                _width_of_wchar_argument = _width
+            }
+
+            WCWIDTH_SEARCH_CURSOR = _entry
+        }
+
+        WCWIDTH_RANGE_WIDTH[_entry] = _width
         WCWIDTH_RANGE_START[_entry] = _start
         WCWIDTH_RANGE_END[_entry] = _end
-
-        if (!_result && _char >= _start && _char <= _end) {
-            _result = 10 * _entry + _width + 1
-        }
     }
 
-    return _result ? _result : int(WCWIDTH_TABLE_LENGTH / 2) * 10
+    return (WCWIDTH_CACHE[_wchar] = _width_of_wchar_argument)
 }

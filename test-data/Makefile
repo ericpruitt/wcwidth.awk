@@ -57,7 +57,7 @@ LANGUAGE_CORPORA: $(CORPUS:=.gutenberg) $(CORPUS:=.text) wcswidths
 				gsub(/^[ \t]*Language:[ \t]*|[ \t]+$$/, ""); \
 				print tolower($$NF); \
 					exit; \
-				}' "$$path" \
+			}' "$$path" \
 		); \
 		cat "$$path" >> "$$language-corpus.text"; \
 	done
@@ -69,5 +69,5 @@ LANGUAGE_CORPORA: $(CORPUS:=.gutenberg) $(CORPUS:=.text) wcswidths
 clean:
 	rm -f LANGUAGE_CORPORA *.gutenberg *.text *.tmp *.widths
 
-cleaner:
+cleaner: clean
 	rm -f wcwidths
