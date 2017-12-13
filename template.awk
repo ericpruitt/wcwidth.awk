@@ -214,6 +214,14 @@ function wcwidth(_wchar)
 #                                     ---
 
 BEGIN {
+    # Silence "defined but never called directly" warnings generated when using
+    # GAWK's linter.
+    if (0) {
+        columns()
+        wcswidth()
+        wcwidth()
+    }
+
     WCWIDTH_POSIX_MODE = 0
     _wcwidth_initialize_library()
 }
