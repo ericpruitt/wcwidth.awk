@@ -125,8 +125,9 @@ Development
 -----------
 
 Unicode data is generated using the code in "generate-width-data.c" and written
-to "width-data". This data is inserted into "template.awk" on the line with the
-comment containing "XXX", and the resulting file is written to "wcwidth.awk".
+to "width-data". This data is inserted into "template.awk" on the line
+consisting of a comment that contains "[WIDTH DATA]", and the resulting file is
+written to "wcwidth.awk".
 
 Makefile Targets:
 

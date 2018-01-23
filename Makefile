@@ -27,7 +27,7 @@ wcwidth.awk: template.awk width-data
 		| sed -e 's/^.*$$/    "\0" \\\\/' -e '$$s/," \\\\$$/"/' \
 	) && \
 	$(AWK) -v insert="$$insert" ' \
-		/# XXX/ { \
+		/^[ \t]*#.*\[WIDTH DATA\]/ { \
 			print insert; \
 			next; \
 		} \

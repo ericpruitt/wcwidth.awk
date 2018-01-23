@@ -244,8 +244,8 @@ function _wcwidth_initialize_library(    _entry, _nul)
         if (sprintf("%c%c%c", 229, 174, 189) != "宽") {
             WCWIDTH_INITIALIZED = -1
             print "wcwidth: the AWK interpreter is not multi-byte safe and" \
-                  " its sprintf implementation does not support allow UTF-8" \
-                  " sequences to be composed manually" >> "/dev/fd/2"
+                  " its sprintf implementation does not support manual" \
+                  " composition of UTF-8 sequences." >> "/dev/fd/2"
             close("/dev/fd/2")
         }
 
@@ -299,7 +299,7 @@ function _wcwidth_unpack_data(_wchar,    _a, _b, _c, _data, _end, _entry,
   _parts, _ranges, _start, _width, _width_of_wchar_argument) {
 
     _data = \
-    # XXX: This part of the function will be filled in automatically.
+    # [WIDTH DATA]: This part of the function will be filled in automatically.
 
     _width_of_wchar_argument = -1
     WCWIDTH_TABLE_LENGTH = split(_data, _ranges, ",")
@@ -314,8 +314,8 @@ function _wcwidth_unpack_data(_wchar,    _a, _b, _c, _data, _end, _entry,
             _start = sprintf("%c", _start)
             _end = sprintf("%c", _end)
         } else {
-            # UTF-8 characters must be composed manually for multi-byte unsafe
-            # interpreters outside of the ASCII range.
+            # Sequences for code points U+0080 and up must be composed manually
+            # if the interpreter is not multi-byte safe.
 
             # Re-use of the length encoding addended values for both endpoints
             # only works if both characters consist of the same number of
