@@ -6,7 +6,7 @@ string which does not necessarily correspond to the visual width of the string.
 This AWK library provides functions that can be used to determine the width of
 UTF-8 characters even on interpreters that are not multi-byte safe. In addition
 to reimplementations of the POSIX functions [_wcwidth(3)_][wcwidth.3] and
-[_wcswidth(3)_][wcswidth.3], this library provides a "columns" function with
+[_wcswidth(3)_][wcswidth.3], this library provides a "wcscolumns" function with
 graceful degradation in the presence of characters that would cause the POSIX
 functions to return -1.
 
@@ -47,7 +47,7 @@ in an "END" block.
 
   [gawk-include]: https://www.gnu.org/software/gawk/manual/html_node/Include-Files.html
 
-### columns(_string_) ###
+### wcscolumns(_string_) ###
 
 Determine the number of columns needed to display a string. This function
 differs from the "wcswidth" function in its handling of non-printable
@@ -69,10 +69,10 @@ always be greater than or equal to 0.
 
     $ cat example.awk
     {
-        printf "columns(\"%s\") → %s\n", $0, columns($0)
+        printf "wcscolumns(\"%s\") → %s\n", $0, wcscolumns($0)
     }
     $ echo "A宽BデC🦀D" | awk -f wcwidth.awk -f example.awk
-    columns("A宽BデC🦀D") → 10
+    wcscolumns("A宽BデC🦀D") → 10
 
 ### wcstruncate(_string_, _columns_) ###
 

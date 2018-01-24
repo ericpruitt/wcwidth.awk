@@ -77,8 +77,8 @@ FILENAME != previous_filename {
             exit_status = 1
         }
 
-        if ((result = columns(invalid_for_posix)) != (expect = 6)) {
-            printf "columns(invalid_for_posix) => %d ≠ %d\n", result, expect
+        if ((result = wcscolumns(invalid_for_posix)) != (expect = 6)) {
+            printf "wcscolumns(invalid_for_posix) => %d ≠ %d\n", result, expect
             exit_status = 1
         }
     }
@@ -128,12 +128,12 @@ WIDTH_DATA_TEST {
             continue
         }
 
-        w = columns(character)
+        w = wcscolumns(character)
         expected = $1 != -1 ? $1 : value > 127 ? 1 : 0
 
         checked++
         if (w != expected) {
-            here(TERSE, "columns(%d) => %d ≠ %d", value, w, expected)
+            here(TERSE, "wcscolumns(%d) => %d ≠ %d", value, w, expected)
             failed++
         }
 
@@ -161,7 +161,7 @@ GENERIC_TEST {
     }
 
     checked += !!NF
-    result = columns($0)
+    result = wcscolumns($0)
 
     if (result != expect) {
         here(TERSE, "expected wcswidth to return %s, not %s", expect, result)

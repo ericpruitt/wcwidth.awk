@@ -2,8 +2,8 @@
 
 # This AWK library provides 4 functions for working with UTF-8 strings:
 #
-# - columns(string): Returns the number of colums needed to display a string,
-#   but unlike "wcswidth" and "wcwidth" which are written to function
+# - wcscolumns(string): Returns the number of colums needed to display a
+#   string, but unlike "wcswidth" and "wcwidth" which are written to function
 #   identically to their POSIX counterparts, this function always returns a
 #   value greater than or equal to 0.
 # - wcstruncate(string, columns): Returns a string truncated to span a limited
@@ -45,8 +45,9 @@
 # Returns: The number of columns needed to display the string. This value will
 # always be greater than or equal to 0.
 #
-function columns(_str,    _length, _max, _min, _offset, _total, _wchar, _width)
-{
+function wcscolumns(_str,    _length, _max, _min, _offset, _total, _wchar,
+  _width) {
+
     _total = 0
 
     if (!WCWIDTH_INITIALIZED) {
@@ -195,7 +196,7 @@ function wcstruncate(_str, _columns,    _regex, _result, _wchar)
     while (_columns > 0 && match(_str, _regex)) {
         _wchar = substr(_str, RSTART, RLENGTH)
         _str = substr(_str, RSTART + RLENGTH)
-        _columns -= columns(_wchar)
+        _columns -= wcscolumns(_wchar)
 
         if (_columns >= 0) {
             _result = _result _wchar
@@ -218,7 +219,7 @@ function wcstruncate(_str, _columns,    _regex, _result, _wchar)
 function wcswidth(_str,    _width)
 {
     WCWIDTH_POSIX_MODE = 1
-    _width = columns(_str)
+    _width = wcscolumns(_str)
     WCWIDTH_POSIX_MODE = 0
     return _width
 }
@@ -257,7 +258,7 @@ BEGIN {
     # Silence "defined but never called directly" warnings generated when using
     # GAWK's linter.
     if (0) {
-        columns()
+        wcscolumns()
         wcstruncate()
         wcswidth()
         wcwidth()
