@@ -1,11 +1,13 @@
 #!/usr/bin/awk -f
 
-# This AWK library provides 3 functions for working with UTF-8 strings:
+# This AWK library provides 4 functions for working with UTF-8 strings:
 #
 # - columns(string): Returns the number of colums needed to display a string,
 #   but unlike "wcswidth" and "wcwidth" which are written to function
 #   identically to their POSIX counterparts, this function always returns a
 #   value greater than or equal to 0.
+# - wcstruncate(string, columns): Returns a string truncated to span a limited
+#   number of columns.
 # - wcswidth(string): Returns the number of columns needed to display a string.
 # - wcwidth(character): Returns the number of columns needed to display a
 #   character.
@@ -118,7 +120,7 @@ function columns(_str,    _length, _max, _min, _offset, _total, _wchar, _width)
                 _str = substr(_str, RSTART + RLENGTH)
             }
 
-            match(_str, WCWIDTH_UTF8_RUNE_REGEX)
+            match(_str, WCWIDTH_UTF8_ANCHORED_RUNE_REGEX)
             _wchar = substr(_str, RSTART, RLENGTH)
             _str = RLENGTH == length(_str) ? "" : substr(_str, RLENGTH + 1)
         } else if (_offset > length(_str)) {
@@ -165,6 +167,44 @@ function columns(_str,    _length, _max, _min, _offset, _total, _wchar, _width)
     return _total
 }
 
+# Truncate a string so that it spans a limited number of columns.
+#
+# Arguments:
+# - _str: A string of any length. In AWK interpreters that are not multi-byte
+#   safe, this argument is interpreted as a UTF-8 encoded string.
+# - _columns: Maximum number of columns the resulting text may span.
+#
+# Returns: "_str" truncated as needed.
+#
+function wcstruncate(_str, _columns,    _regex, _result, _wchar)
+{
+    _columns = 0 + _columns
+
+    # The individual widths of characters need not be checked when
+    # `(length(_str) * 2) <= _columns` because a character may only span 2
+    # columns at most.
+    if ((WCWIDTH_MULTIBYTE_SAFE && (length(_str) * 2) <= _columns) ||
+     (!WCWIDTH_MULTIBYTE_SAFE && WCWIDTH_INTERVAL_EXPRESSIONS_SUPPORTED &&
+      match(_str, "^" WCWIDTH_UTF8_RUNE_REGEX "{," int(_columns / 2) "}$"))) {
+        return _str
+    }
+
+    _regex = "^" (WCWIDTH_MULTIBYTE_SAFE ? "." : WCWIDTH_UTF8_RUNE_REGEX)
+    _result = ""
+
+    while (_columns > 0 && match(_str, _regex)) {
+        _wchar = substr(_str, RSTART, RLENGTH)
+        _str = substr(_str, RSTART + RLENGTH)
+        _columns -= columns(_wchar)
+
+        if (_columns >= 0) {
+            _result = _result _wchar
+        }
+    }
+
+    return _result
+}
+
 # A reimplementation of the POSIX function of the same name to determine the
 # number of columns needed to display a string.
 #
@@ -201,7 +241,7 @@ function wcwidth(_wchar)
         return -1
     } else if (WCWIDTH_MULTIBYTE_SAFE) {
         return length(_wchar) == 1 ? wcswidth(_wchar) : -1
-    } else if (match(_wchar, WCWIDTH_UTF8_RUNE_REGEX)) {
+    } else if (match(_wchar, WCWIDTH_UTF8_ANCHORED_RUNE_REGEX)) {
         return RLENGTH == length(_wchar) ? wcswidth(_wchar) : -1
     } else {
         return -1
@@ -218,6 +258,7 @@ BEGIN {
     # GAWK's linter.
     if (0) {
         columns()
+        wcstruncate()
         wcswidth()
         wcwidth()
     }
@@ -238,6 +279,7 @@ function _wcwidth_initialize_library(    _entry, _nul)
 
     split("X", WCWIDTH_CACHE)
 
+    WCWIDTH_INTERVAL_EXPRESSIONS_SUPPORTED = "XXXX" ~ /^X{,4}$/
     WCWIDTH_MULTIBYTE_SAFE = length("宽") == 1
 
     if (!WCWIDTH_MULTIBYTE_SAFE) {
@@ -249,7 +291,7 @@ function _wcwidth_initialize_library(    _entry, _nul)
             close("/dev/fd/2")
         }
 
-        WCWIDTH_UTF8_RUNE_REGEX = "^(" \
+        WCWIDTH_UTF8_RUNE_REGEX = "(" \
             "[\001-\177]|" \
             "[\302-\336\337][\200-\277]|" \
             "\340[\240-\277][\200-\277]|" \
@@ -260,6 +302,9 @@ function _wcwidth_initialize_library(    _entry, _nul)
             "\364[\200-\217][\200-\277][\200-\277]|" \
             "." \
         ")"
+
+        WCWIDTH_UTF8_ANCHORED_RUNE_REGEX = "^" WCWIDTH_UTF8_RUNE_REGEX
+
         WCWIDTH_WIDE_CJK_RUNES_REGEX = "^((" \
             "\343(\201[\201-\277]|\202[\200-\226])|" \
             "\343(\202[\231-\277]|\203[\200-\277])|" \
@@ -276,7 +321,8 @@ function _wcwidth_initialize_library(    _entry, _nul)
     # Kludges to support AWK implementations allow NUL bytes inside of strings.
     if (length((_nul = sprintf("%c", 0)))) {
         if (!WCWIDTH_MULTIBYTE_SAFE) {
-            WCWIDTH_UTF8_RUNE_REGEX = WCWIDTH_UTF8_RUNE_REGEX "|^" _nul
+            WCWIDTH_UTF8_ANCHORED_RUNE_REGEX = \
+                WCWIDTH_UTF8_ANCHORED_RUNE_REGEX "|^" _nul
         }
 
         WCWIDTH_CACHE[_nul] = 0

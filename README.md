@@ -74,6 +74,27 @@ always be greater than or equal to 0.
     $ echo "A宽BデC🦀D" | awk -f wcwidth.awk -f example.awk
     columns("A宽BデC🦀D") → 10
 
+### wcstruncate(_string_, _columns_) ###
+
+Truncate a string so that it spans a limited number of columns.
+
+**Arguments:**
+- **string**: A string of any length. In AWK interpreters that are not
+  multi-byte safe, this argument is interpreted as a UTF-8 encoded string.
+- **columns**: Maximum number of columns the resulting text may span.
+
+**Returns:** Input string truncated as needed.
+
+**Example:**
+
+    $ cat example.awk
+    {
+        printf "wcstruncate(\"%s\", %d) → %s\n", $1, $2, wcstruncate($1, $2)
+    }
+    $ printf "AエBビCシ 5\nxYzPqR 10\n" | awk -f wcwidth.awk -f example.awk
+    wcstruncate("AエBビCシ", 5) → AエB
+    wcstruncate("xYzPqR", 10) → xYzPqR
+
 ### wcswidth(_string_) ###
 
 A reimplementation of the [POSIX function of the same name][wcswidth.3] to
