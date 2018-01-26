@@ -43,7 +43,9 @@ the file using AWK's "-f" option or any equivalent construct like GNU Awk's
 ["@include"][gawk-include]. The library only uses "exit" if the library is
 incompatible with the interpreter. In that case, "WCWIDTH_INITIALIZED" is set
 to -1 so failed initialization can be detected with `WCWIDTH_INITIALIZED < 0`
-in an "END" block.
+in an "END" block. The special AWK variables "RSTART" and "RLENGTH" will always
+have the same values after calling one of these functions as they did prior to
+the invocation.
 
   [gawk-include]: https://www.gnu.org/software/gawk/manual/html_node/Include-Files.html
 

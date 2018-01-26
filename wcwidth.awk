@@ -45,8 +45,8 @@
 # Returns: The number of columns needed to display the string. This value will
 # always be greater than or equal to 0.
 #
-function wcscolumns(_str,    _length, _max, _min, _offset, _total, _wchar,
-  _width) {
+function wcscolumns(_str,    _length, _max, _min, _offset, _rl, _rs, _total,
+  _wchar, _width) {
 
     _total = 0
 
@@ -79,6 +79,9 @@ function wcscolumns(_str,    _length, _max, _min, _offset, _total, _wchar,
     if (!_str) {
         return _total
     }
+
+    _rs = RSTART
+    _rl = RLENGTH
 
     while (1) {
         if (!WCWIDTH_MULTIBYTE_SAFE) {
@@ -158,13 +161,16 @@ function wcscolumns(_str,    _length, _max, _min, _offset, _total, _wchar,
         if (_width != -1) {
             _total += _width
         } else if (WCWIDTH_POSIX_MODE) {
-            return -1
+            _total = -1
+            break
         } else {
             # Ignore non-printable ASCII characters.
             _total += length(_wchar) == 1 ? _wchar > "\177" : 1
         }
     }
 
+    RLENGTH = _rl
+    RSTART = _rs
     return _total
 }
 
@@ -177,7 +183,7 @@ function wcscolumns(_str,    _length, _max, _min, _offset, _total, _wchar,
 #
 # Returns: "_str" truncated as needed.
 #
-function wcstruncate(_str, _columns,    _result, _wchar, _width)
+function wcstruncate(_str, _columns,    _result, _rl, _rs, _wchar, _width)
 {
     _columns = 0 + _columns
 
@@ -196,6 +202,8 @@ function wcstruncate(_str, _columns,    _result, _wchar, _width)
         return _str
     }
 
+    _rl = RLENGTH
+    _rs = RSTART
     _result = ""
 
     while (_columns > 0 && _str) {
@@ -220,6 +228,8 @@ function wcstruncate(_str, _columns,    _result, _wchar, _width)
         }
     }
 
+    RLENGTH = _rl
+    RSTART = _rs
     return _result
 }
 
@@ -253,17 +263,28 @@ function wcswidth(_str,    _width)
 # printable and -1 if it is not. If the argument does not contain exactly one
 # character (or UTF-8 code point), -1 is returned.
 #
-function wcwidth(_wchar)
+function wcwidth(_wchar,    _result, _rl, _rs)
 {
+    _result = -1
+
     if (!_wchar) {
-        return -1
-    } else if (WCWIDTH_MULTIBYTE_SAFE) {
-        return length(_wchar) == 1 ? wcswidth(_wchar) : -1
-    } else if (match(_wchar, WCWIDTH_UTF8_ANCHORED_RUNE_REGEX)) {
-        return RLENGTH == length(_wchar) ? wcswidth(_wchar) : -1
-    } else {
-        return -1
+        # An empty string is an invalid argument.
+    } else if (WCWIDTH_MULTIBYTE_SAFE && length(_wchar) == 1) {
+        _result = wcswidth(_wchar)
+    } else if (!WCWIDTH_MULTIBYTE_SAFE) {
+        _rs = RSTART
+        _rl = RLENGTH
+
+        if (match(_wchar, WCWIDTH_UTF8_ANCHORED_RUNE_REGEX) &&
+          RLENGTH == length(_wchar)) {
+            _result = wcswidth(_wchar)
+        }
+
+        RSTART = _rs
+        RLENGTH = _rl
     }
+
+    return _result
 }
 
 #                                     ---
