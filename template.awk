@@ -177,26 +177,43 @@ function wcscolumns(_str,    _length, _max, _min, _offset, _total, _wchar,
 #
 # Returns: "_str" truncated as needed.
 #
-function wcstruncate(_str, _columns,    _regex, _result, _wchar)
+function wcstruncate(_str, _columns,    _result, _wchar, _width)
 {
     _columns = 0 + _columns
+
+    # Use "substr" for strings composed of 1-column characters.
+    if (_str !~ /[^\040-\176]/ || (WCWIDTH_MULTIBYTE_SAFE &&
+      _str !~ /[^ -~ -¬®-˿Ͱ-ͷͺ-Ϳ΄-ΊΌΎ-ΡΣ-҂Ҋ-ԯԱ-Ֆՙ-՟ա-և։֊־׀׃׆א-תװ-״]/)) {
+        return length(_str) > _columns ? substr(_str, 1, _columns) : _str
+    }
 
     # The individual widths of characters need not be checked when
     # `(length(_str) * 2) <= _columns` because a character may only span 2
     # columns at most.
     if ((WCWIDTH_MULTIBYTE_SAFE && (length(_str) * 2) <= _columns) ||
      (!WCWIDTH_MULTIBYTE_SAFE && WCWIDTH_INTERVAL_EXPRESSIONS_SUPPORTED &&
-      match(_str, "^" WCWIDTH_UTF8_RUNE_REGEX "{," int(_columns / 2) "}$"))) {
+      _str ~ ("^" WCWIDTH_UTF8_RUNE_REGEX "{," int(_columns / 2) "}$"))) {
         return _str
     }
 
-    _regex = "^" (WCWIDTH_MULTIBYTE_SAFE ? "." : WCWIDTH_UTF8_RUNE_REGEX)
     _result = ""
 
-    while (_columns > 0 && match(_str, _regex)) {
-        _wchar = substr(_str, RSTART, RLENGTH)
-        _str = substr(_str, RSTART + RLENGTH)
-        _columns -= wcscolumns(_wchar)
+    while (_columns > 0 && _str) {
+        if (_str ~ /^[\040-\176]/) {
+            _wchar = substr(_str, 1, 1)
+            _str = substr(_str, 2)
+            _width = 1
+        } else if (WCWIDTH_MULTIBYTE_SAFE) {
+            _wchar = substr(_str, 1, 1)
+            _str = substr(_str, 2)
+            _width = wcscolumns(_wchar)
+        } else if (match(_str, WCWIDTH_UTF8_RUNE_REGEX)) {
+            _wchar = substr(_str, RSTART, RLENGTH)
+            _str = substr(_str, RSTART + RLENGTH)
+            _width = wcscolumns(_wchar)
+        }
+
+        _columns -= _width
 
         if (_columns >= 0) {
             _result = _result _wchar
