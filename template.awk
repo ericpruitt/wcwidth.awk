@@ -6,6 +6,8 @@
 #   string, but unlike "wcswidth" and "wcwidth" which are written to function
 #   identically to their POSIX counterparts, this function always returns a
 #   value greater than or equal to 0.
+# - wcsexpand(string, tab_stop): Expand tabs to spaces in a wide
+#   character-aware manner.
 # - wcstruncate(string, columns): Returns a string truncated to span a limited
 #   number of columns.
 # - wcswidth(string): Returns the number of columns needed to display a string.
