@@ -174,6 +174,32 @@ function wcscolumns(_str,    _length, _max, _min, _offset, _rl, _rs, _total,
     return _total
 }
 
+# Expand tabs to spaces in a wide character-aware manner. Calculations done by
+# this function assume the first character of the string is the first character
+# of the line or the first character following a tab.
+#
+# Arguments:
+# - _str: The string to expand.
+# - _tab_stop: The maximum width of tabs. This must be an integer greater than
+#   zero.
+#
+# Returns: A string with all tabs replaced with spaces.
+#
+function wcsexpand(_str, _tab_stop,    _column, _mark, _tab_index, _tab_width)
+{
+    _column = 0
+
+    # An alternate implementation of this function used split(..., ..., "\t"),
+    # but that approach was generally slower.
+    for (_mark = 0; (_tab_index = index(_str, "\t")); _mark = _tab_index - 1) {
+        _column += wcscolumns(substr(_str, _mark + 1, _tab_index - _mark - 1))
+        _tab_width = _tab_stop - _column % _tab_stop
+        sub(/\t/, sprintf("%*s", _tab_width, ""), _str)
+    }
+
+    return _str
+}
+
 # Truncate a string so that it spans a limited number of columns.
 #
 # Arguments:
@@ -297,6 +323,7 @@ BEGIN {
     # GAWK's linter.
     if (0) {
         wcscolumns()
+        wcsexpand()
         wcstruncate()
         wcswidth()
         wcwidth()

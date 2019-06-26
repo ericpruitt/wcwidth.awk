@@ -8,8 +8,9 @@ UTF-8 characters even on interpreters that are not multi-byte safe. In addition
 to reimplementations of the POSIX functions [_wcwidth(3)_][wcwidth.3] and
 [_wcswidth(3)_][wcswidth.3], this library provides "wcscolumns", a function
 with graceful degradation in the presence of characters that would cause the
-POSIX functions to return -1 and "wcstruncate", a function for truncating a
-string to a specific visual column.
+POSIX functions to return -1; "wcstruncate", a function for truncating a string
+to a specific visual column; and "wcsexpand", a function that expands tabs to
+spaces in a wide character-aware manner.
 
 The library is written so as to be portable across AWK interpreters; if the
 interpreter does not have native support for multi-byte characters, the library
@@ -76,6 +77,29 @@ always be greater than or equal to 0.
     }
     $ echo "A宽BデC🦀D" | awk -f wcwidth.awk -f example.awk
     wcscolumns("A宽BデC🦀D") → 10
+
+### wcsexpand(_string_, _tab_stop_) ###
+
+Expand tabs to spaces in a wide character-aware manner. Calculations done by
+this function assume the first character of the string is the first character
+of the line or the first character following a tab.
+
+**Arguments:**
+
+- **string**: The string to expand.
+- **tab_stop**: The maximum width of tabs. This must be an integer greater than
+  zero.
+
+**Returns:** A string with all tabs replaced with spaces.
+
+**Example:**
+
+    $ cat example.awk
+    {
+        printf "wcsexpand(\"%s\", 8) → %s\n", $0, wcsexpand($0, 8)
+    }
+    $ printf "Rat\t鼠\t2020\n" | awk -f wcwidth.awk -f example.awk
+    wcsexpand("Rat	鼠	2020", 8) → Rat     鼠      2020
 
 ### wcstruncate(_string_, _columns_) ###
 
