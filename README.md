@@ -6,9 +6,10 @@ string which does not necessarily correspond to the visual width of the string.
 This AWK library provides functions that can be used to determine the width of
 UTF-8 characters even on interpreters that are not multi-byte safe. In addition
 to reimplementations of the POSIX functions [_wcwidth(3)_][wcwidth.3] and
-[_wcswidth(3)_][wcswidth.3], this library provides a "wcscolumns" function with
-graceful degradation in the presence of characters that would cause the POSIX
-functions to return -1.
+[_wcswidth(3)_][wcswidth.3], this library provides "wcscolumns", a function
+with graceful degradation in the presence of characters that would cause the
+POSIX functions to return -1 and "wcstruncate", a function for truncating a
+string to a specific visual column.
 
 The library is written so as to be portable across AWK interpreters; if the
 interpreter does not have native support for multi-byte characters, the library
