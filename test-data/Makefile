@@ -4,7 +4,7 @@
 # List of Project Gutenberg book numbers. This should consit of at least one
 # ASCII book, one book composed mostly of CJK characters and one book that
 # includes non-ASCII Latin character (e.g. French, Spanish, etc.).
-CORPUS = 1493 2650-0 25229-0
+CORPUS = 1493-0 2650-0 25229-0
 
 TLS_PROJECT_GUTENBERG_MIRRORS = \
 	https://mirror.csclub.uwaterloo.ca/gutenberg \
