@@ -36,7 +36,7 @@ wcwidth.awk: template.awk width-data
 		} \
 	' template.awk > $@.tmp
 	mv $@.tmp $@
-	echo "$@: file generated succesfully"
+	echo "$@: file generated successfully"
 
 test-all test-corpora test-width-data: wcwidth.awk
 	fallback="$(AWK)" && \
