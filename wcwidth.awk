@@ -101,7 +101,7 @@ function wcscolumns(_str,    _length, _max, _min, _offset, _rl, _rs, _total,
             # mentioned above. Experimenting showed that performance in MAWK
             # eventually begins drop off rapidly for the French corpus as the
             # regex complexity increases.
-            if (match(_str, /^([\303-\313][\200-\277][ -~]*)+/)) {
+            if (match(_str, "^([\303-\313][\200-\277][ -~]*)+")) {
                 _wchar = substr(_str, RSTART, RLENGTH)
                 _total += gsub(/[^ -~]/, "", _wchar) / 2 + length(_wchar)
 
