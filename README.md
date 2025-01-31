@@ -22,7 +22,7 @@ tested with these AWK implementations:
 - [MAWK][mawk]
 - [Original AWK a.k.a "The One True Awk"][original-awk]
 
-The width data used by the preexisting "wcwidth.awk" comes from version 2.24 of
+The width data used by the preexisting "wcwidth.awk" comes from version 2.36 of
 the [GNU C Library][glibc], but it can be rebuilt to tailor to other systems
 using instructions in the _Development_ section at the end of this document.
 
@@ -184,7 +184,7 @@ Makefile Targets:
   is the default target.
 - **width-data:** Enumerate all Unicode code points and write the information
   to a file named "width-data". The existing file provided with this repository
-  was generated using GNU libc 2.24. If the values returned by "wcwidth.awk" do
+  was generated using GNU libc 2.36. If the values returned by "wcwidth.awk" do
   not seem to match the behavior of the host's _wcwidth(3)_ implementation,
   delete "width-data" and run `make` to regenerate a properly tailored file.
 - **clean:** Delete the binary used to generate the "width-data" file.

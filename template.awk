@@ -67,12 +67,10 @@ function wcscolumns(_str,    _length, _max, _min, _offset, _rl, _rs, _total,
 
         # Optimization for common wide CJK characters. Based on data from
         # http://corpus.leeds.ac.uk/list.html, this covers ~95% of all
-        # characters used on Chinese and Japanese sites. U+3099 is a combining
-        # character, so it has been replaced with an octal sequence to keep
-        # terminal screens from getting munged.
+        # characters used on Chinese and Japanese sites.
         _length = length(_str)
         _total -= _length
-        gsub(/[가-힣一-鿕！-｠ぁ-ゖ\343\202\231-ヿ]+/, "", _str)
+        gsub(/[가-힣一-鿕！-｠ぁ-ゖ゛-ヿ]+/, "", _str)
         _total += (_length - length(_str)) * 2
 
         _offset = 1
@@ -375,7 +373,7 @@ function _wcwidth_initialize_library(    _entry, _nul)
 
         WCWIDTH_WIDE_CJK_RUNES_REGEX = "^((" \
             "\343(\201[\201-\277]|\202[\200-\226])|" \
-            "\343(\202[\231-\277]|\203[\200-\277])|" \
+            "\343(\202[\233-\277]|\203[\200-\277])|" \
             "\344([\270-\277][\200-\277])|" \
             "[\345-\350]([\200-\277][\200-\277])|" \
             "\351([\200-\276][\200-\277]|\277[\200-\225])|" \
