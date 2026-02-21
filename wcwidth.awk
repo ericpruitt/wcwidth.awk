@@ -27,7 +27,7 @@
 # in a "BEGIN" block.
 #
 # Author: Eric Pruitt (https://www.codevat.com)
-# License: 2-Clause BSD (http://opensource.org/licenses/BSD-2-Clause)
+# License: MIT (https://opensource.org/license/MIT)
 # Project Page: https://github.com/ericpruitt/wcwidth.awk
 
 #                                     ---
