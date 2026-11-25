@@ -224,7 +224,7 @@ function wcstruncate(_str, _columns,    _result, _rl, _rs, _wchar, _width)
     # columns at most.
     if ((WCWIDTH_MULTIBYTE_SAFE && (length(_str) * 2) <= _columns) ||
      (!WCWIDTH_MULTIBYTE_SAFE && WCWIDTH_INTERVAL_EXPRESSIONS_SUPPORTED &&
-      _str ~ ("^" WCWIDTH_UTF8_RUNE_REGEX "{," int(_columns / 2) "}$"))) {
+      _str ~ ("^" WCWIDTH_UTF8_RUNE_REGEX "{0," int(_columns / 2) "}$"))) {
         return _str
     }
 
@@ -345,7 +345,7 @@ function _wcwidth_initialize_library(    _entry, _nul)
 
     split("X", WCWIDTH_CACHE)
 
-    WCWIDTH_INTERVAL_EXPRESSIONS_SUPPORTED = "XXXX" ~ /^X{,4}$/
+    WCWIDTH_INTERVAL_EXPRESSIONS_SUPPORTED = "XXXX" ~ /^X{0,4}$/
     WCWIDTH_MULTIBYTE_SAFE = length("宽") == 1
 
     if (!WCWIDTH_MULTIBYTE_SAFE) {
